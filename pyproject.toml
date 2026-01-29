@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=65.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ecosysteme-des-donnees"
+version = "1.0.0"
+description = "Lotka-Volterra population dynamics - Golem (Group F)"
+authors = [
+    {name = "Idriss Jourdan", email = "idrissjourdan@icloud.com"},
+    {name = "Rezi Sabashvili", email = "rezisabashvili1@icloud.com"}
+]
+requires-python = ">=3.11"
+dependencies = [
+    "flask>=3.0.0",
+    "requests>=2.31.0",
+    "streamlit>=1.30.0",
+    "numpy>=1.26.0",
+    "pandas>=2.1.0",
+    "plotly>=5.18.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "black>=23.0.0",
+    "flake8>=6.0.0",
+    "mypy>=1.0.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+pythonpath = ["."]
+
+[tool.black]
+line-length = 100
+target-version = ['py311']
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
