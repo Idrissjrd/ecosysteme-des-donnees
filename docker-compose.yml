@@ -1,0 +1,37 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+    container_name: ecosysteme-golem-api
+    ports:
+      - "16050:16050"
+    networks:
+      - ecosysteme-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:16050/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: docker/dashboard.Dockerfile
+    container_name: ecosysteme-golem-dashboard
+    ports:
+      - "8501:8501"
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - ecosysteme-net
+    restart: unless-stopped
+    environment:
+      - API_URL=http://api:16050
+
+networks:
+  ecosysteme-net:
+    driver: bridge
