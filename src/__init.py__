@@ -1,0 +1,11 @@
+"""
+Golem Population Model
+Lotka-Volterra population dynamics simulator.
+"""
+
+__version__ = "1.0.0"
+__author__ = "Golem Team"
+
+from src.model import PopulationModel, Species, create_golem_model
+
+__all__ = ["PopulationModel", "Species", "create_golem_model"]
