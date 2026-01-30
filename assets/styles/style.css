@@ -1,0 +1,362 @@
+/* --- POLICES PERSONNALISÉES --- */
+@font-face { font-family: 'BankTitle'; src: url('assets/font/titres.ttf') format('truetype'); }
+@font-face { font-family: 'BankSub'; src: url('assets/font/sous-titres.ttf') format('truetype'); }
+@font-face { font-family: 'BankBody'; src: url('assets/font/corpus.ttf') format('truetype'); }
+
+/* --- STRUCTURE PRINCIPALE --- */
+.stApp {
+    background-color: #F7F5F2 !important; 
+    color: #1A2A40 !important;
+}
+
+.main {
+    font-family: 'BankBody', sans-serif !important;
+}
+
+/* --- TITRE LUXE AVEC ANIMATION DYNAMIQUE --- */
+h1 {
+    font-family: 'BankTitle', serif !important;
+    font-size: 5rem !important;
+    text-align: center !important;
+    font-weight: 800 !important;
+    letter-spacing: -3px !important;
+    padding-top: 60px !important;
+    margin-bottom: 10px !important;
+    text-transform: uppercase;
+    
+    /* Animation de couleur Or/Bronze/Bleu Nuit */
+    background: linear-gradient(to right, #1A2A40 20%, #C5A059 40%, #8E6E3E 60%, #1A2A40 80%);
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: bank_shine 8s linear infinite;
+}
+
+@keyframes bank_shine {
+    to { background-position: 200% center; }
+}
+
+h1::after {
+    content: '';
+    display: block;
+    width: 120px;
+    height: 3px;
+    background: #C5A059;
+    margin: 15px auto;
+}
+
+/* --- ALIGNEMENT DES ANALYSES (CÔTE À CÔTE) --- */
+/* Force les blocs de métriques à s'aligner proprement dans les colonnes */
+div[data-testid="stHorizontalBlock"] {
+    gap: 2rem !important;
+    align-items: flex-start !important;
+}
+
+/* --- CARTES DE MÉTRIQUES --- */
+[data-testid="stMetric"] {
+    background: white !important;
+    border: 1px solid #E5E1DA !important;
+    border-radius: 2px !important;
+    padding: 20px !important;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02) !important;
+    transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+}
+
+[data-testid="stMetric"]:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.05) !important;
+    border-color: #C5A059 !important;
+}
+
+[data-testid="stMetricLabel"] {
+    font-family: 'BankSub', sans-serif !important;
+    color: #6B7280 !important;
+    text-transform: uppercase;
+    font-size: 0.8rem !important;
+    letter-spacing: 1px;
+}
+
+[data-testid="stMetricValue"] {
+    font-family: 'BankTitle', sans-serif !important;
+    color: #1A2A40 !important;
+    font-size: 2.4rem !important;
+}
+
+/* --- BOUTONS --- */
+.stButton > button {
+    font-family: 'BankSub', sans-serif !important;
+    border-radius: 0px !important;
+    font-size: 0.95rem !important;
+    height: 3.5rem !important;
+    font-weight: 700 !important;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    transition: all 0.4s !important;
+}
+
+/* Bouton 1 Step */
+div.stColumn:nth-child(1) .stButton > button {
+    background-color: transparent !important;
+    color: #1A2A40 !important;
+    border: 1px solid #1A2A40 !important;
+}
+
+/* Bouton 50 Steps - MISE EN AVANT */
+div.stColumn:nth-child(2) .stButton > button {
+    background-color: #1A2A40 !important;
+    color: #C5A059 !important;
+    border: none !important;
+    box-shadow: 0 10px 20px rgba(26, 42, 64, 0.2) !important;
+}
+
+/* Bouton Reset */
+div.stColumn:nth-child(3) .stButton > button {
+    background-color: rgba(153, 27, 27, 0.02) !important;
+    color: #991B1B !important;
+    border: 1px solid #FECACA !important;
+}
+
+.stButton > button:hover {
+    border-color: #C5A059 !important;
+    transform: scale(1.02);
+}
+
+/* --- SECTIONS & TEXTES --- */
+h2, h3, .stSubheader {
+    font-family: 'BankSub', sans-serif !important;
+    color: #1A2A40 !important;
+    margin-top: 40px !important;
+    border-bottom: 2px solid #E5E1DA;
+    padding-bottom: 8px !important;
+}
+
+.stMarkdown p {
+    color: #4B5563 !important;
+    font-size: 1.1rem;
+}
+
+/* --- DATAFRAMES & CHARTS --- */
+[data-testid="stDataFrame"], .stPlotlyChart {
+    background-color: white !important;
+    border: 1px solid #E5E1DA !important;
+    padding: 15px !important;
+    border-radius: 0px !important;
+}
+
+/* --- SCROLLBAR --- */
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: #F7F5F2; }
+::-webkit-scrollbar-thumb { background: #C5A059; }
+
+/* --- CLEANUP --- */
+footer, header, #MainMenu { visibility: hidden; }
+
+/* Animation de lueur interactive sur les métriques */
+[data-testid="stMetric"] {
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+[data-testid="stMetric"]:hover {
+    box-shadow: 0 14px 28px rgba(197, 160, 89, 0.15), 0 10px 10px rgba(197, 160, 89, 0.1) !important;
+    border-color: #C5A059 !important;
+    transform: translateY(-2px);
+}
+
+/* Bouton Reset style Verre Dépoli */
+div.stColumn:nth-child(3) .stButton > button {
+    background: rgba(255, 255, 255, 0.4) !important;
+    backdrop-filter: blur(10px) !important;
+    border: 1px solid rgba(153, 27, 27, 0.2) !important;
+    color: #991B1B !important;
+}
+
+div.stColumn:nth-child(3) .stButton > button:hover {
+    background: rgba(153, 27, 27, 0.05) !important;
+    border-color: #991B1B !important;
+}
+
+/* Tableaux de données style haute couture */
+[data-testid="stTable"] {
+    background-color: white !important;
+    border: none !important;
+}
+
+[data-testid="stTable"] tr:nth-child(even) {
+    background-color: #FBF9F6 !important;
+}
+
+[data-testid="stTable"] th {
+    background-color: #1A2A40 !important;
+    color: #F7F5F2 !important;
+    text-transform: uppercase;
+    font-size: 0.8rem;
+    padding: 15px !important;
+}
+
+/* Barre de chargement animée */
+.stProgress > div > div > div > div {
+    background: linear-gradient(90deg, #C5A059, #F7F5F2, #C5A059) !important;
+    background-size: 200% 100% !important;
+    animation: progress_move 2s linear infinite !important;
+}
+
+@keyframes progress_move {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* --- PULSATION DE LA CARTE ENTIÈRE --- */
+[data-testid="stMetric"] {
+    position: relative;
+    overflow: hidden;
+}
+
+/* Une fine ligne lumineuse qui traverse la carte */
+[data-testid="stMetric"]::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #C5A059, transparent);
+    animation: scanning 3s linear infinite;
+}
+
+@keyframes scanning {
+    0% { left: -100%; }
+    100% { left: 100%; }
+}
+
+/* --- SÉPARATEUR DE SECTION ANALYTIQUE --- */
+div[data-testid="stHorizontalBlock"]:has([data-testid="stMetric"]) {
+    background: white;
+    border: 1px solid #EAE6DF;
+    border-radius: 8px;
+    padding: 30px !important;
+    position: relative;
+}
+
+/* Ajoute un trait vertical subtil au milieu des deux colonnes d'analyse */
+div[data-testid="stHorizontalBlock"]:has([data-testid="stMetric"]) > div:first-child {
+    border-right: 1px solid #F0EDE9;
+    padding-right: 20px !important;
+}
+
+/* --- CADRE ANALYTIQUE DYNAMIQUE --- */
+.stPlotlyChart {
+    transition: border 0.4s ease, box-shadow 0.4s ease !important;
+    border: 1px solid #E5E1DA !important;
+}
+
+.stPlotlyChart:hover {
+    border-color: #C5A059 !important; /* Bordure dorée au survol */
+    box-shadow: 0 10px 40px rgba(26, 42, 64, 0.05) !important;
+}
+
+/* Ajout d'un petit label "Interactive" en haut à droite du graphique */
+.stPlotlyChart::before {
+    content: "LIVE DATA";
+    position: absolute;
+    top: 10px;
+    right: 15px;
+    font-size: 0.6rem;
+    font-family: 'BankSub', sans-serif;
+    color: #C5A059;
+    letter-spacing: 1px;
+    border: 1px solid #C5A059;
+    padding: 2px 6px;
+    border-radius: 3px;
+    z-index: 10;
+}
+
+/* --- ALERTES DISCRÈTES --- */
+.stAlert {
+    background-color: #FDFCFB !important;
+    border: 1px solid #EAE6DF !important;
+    color: #1A2A40 !important;
+    border-radius: 4px !important;
+}
+
+/* Transforme l'icône d'erreur en quelque chose de plus minimaliste */
+.stAlert [data-testid="stNotificationContentIcon"] {
+    color: #C5A059 !important;
+}
+
+/* --- TRANSITION DE VALEUR --- */
+[data-testid="stMetricValue"] {
+    transition: color 0.5s ease-in-out;
+}
+
+/* Le chiffre s'éclaire brièvement lors de la mise à jour (rerun) */
+@keyframes value_update {
+    0% { color: #C5A059; transform: scale(1.05); }
+    100% { color: #1A2A40; transform: scale(1); }
+}
+
+/* Note: Pour activer cela, il faudrait ajouter une classe lors du changement, 
+mais on peut simuler l'effet au chargement de la page */
+[data-testid="stMetricValue"] {
+    animation: value_update 1s ease-out;
+}
+
+/* --- HEADER FLOTTANT PROFESSIONNEL --- */
+div[data-testid="stHeader"] {
+    background: rgba(247, 245, 242, 0.8) !important;
+    backdrop-filter: blur(12px) !important;
+    border-bottom: 1px solid rgba(26, 42, 64, 0.05);
+}
+
+/* Ajustement de l'espacement pour éviter le chevauchement */
+.block-container {
+    padding-top: 2rem !important;
+}
+
+/* --- LECTURE DE DONNÉES PRÉCISE --- */
+[data-testid="stDataFrame"] tr:hover {
+    background-color: rgba(197, 160, 89, 0.05) !important;
+    transition: background 0.2s ease;
+}
+
+[data-testid="stDataFrame"] td {
+    border-bottom: 1px solid #F0EDE9 !important;
+    font-family: 'BankBody', monospace !important; /* Chiffres alignés */
+    font-size: 0.85rem !important;
+}
+
+/* --- MODE FOCUS INSTITUTIONNEL --- */
+#MainMenu, footer, header, [data-testid="stStatusWidget"] {
+    visibility: hidden !important;
+    display: none !important;
+}
+
+/* Supprimer le padding inutile en haut de page */
+.main .block-container {
+    padding-top: 30px !important;
+    max-width: 95% !important; /* Utilise plus d'espace écran */
+}
+
+/* --- CONSOLE DE CONTRÔLE --- */
+div:has( > div > .stButton) {
+    background: #F0EDE9;
+    padding: 15px !important;
+    border-radius: 4px;
+    border: 1px solid #E5E1DA;
+    margin-bottom: 20px;
+}
+
+/* Petit effet de clic physique sur les boutons */
+.stButton > button:active {
+    transform: translateY(2px) !important;
+    box-shadow: none !important;
+}
+
+/* --- DIVISEUR ANALYTIQUE --- */
+hr {
+    margin: 3rem 0 !important;
+    border: none !important;
+    height: 1px !important;
+    background: linear-gradient(to right, transparent, #C5A059, #1A2A40, #C5A059, transparent) !important;
+    opacity: 0.3;
+}
+

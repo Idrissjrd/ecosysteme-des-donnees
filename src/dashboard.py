@@ -21,7 +21,7 @@ st.set_page_config(
     layout="wide",
 )
 
-st.title("🧙 Golem Population Model")
+st.title("Golem Population Model")
 
 
 def fetch_state() -> dict | None:
@@ -33,6 +33,12 @@ def fetch_state() -> dict | None:
     except Exception as e:
         st.warning(f"API error: {e}")
     return None
+
+def local_css(file_name):
+    with open(file_name) as f:
+        st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
+
+local_css("assets/styles/style.css")
 
 
 def fetch_population() -> dict | None:
@@ -91,7 +97,7 @@ with placeholder.container():
 
         with col1:
             st.metric(
-                "🧙 Golem",
+                "Golem",
                 f"{pop_data['taille']:.1f}",
                 delta=f"t={state['time_step']}",
             )
@@ -107,48 +113,51 @@ with placeholder.container():
             vampire_pop_display = vampire_pop if vampire_pop > 0 else 0
 
             st.metric(
-                "🧛 Vampire",
+                "Vampire",
                 f"{vampire_pop_display:.1f}",
                 delta=f"t={state['time_step']}",
             )
 
         with col3:
             st.metric(
-                "⏱️ Time Step",
+                "Time Step",
                 state["time_step"],
             )
 
         st.divider()
 
-    # Control buttons
+    notification_container = st.empty()
+
     col_a, col_b, col_c = st.columns(3)
 
     with col_a:
-        if st.button("▶️ Run 1 Step", use_container_width=True):
+        if st.button("Run 1 Step", use_container_width=True):
             if run_step():
-                st.success("Step executed!")
-                time.sleep(0.5)
+                notification_container.success("Step executed!")
+                time.sleep(2)
+                notification_container.empty()
                 st.rerun()
 
     with col_b:
-        if st.button("▶️ Run 50 Steps", use_container_width=True):
-            progress_bar = st.progress(0)
+        if st.button("Run 50 Steps", use_container_width=True):
+            p_bar_container = st.empty()
             for i in range(50):
                 run_step()
-                progress_bar.progress((i + 1) / 50)
-            st.success("50 steps executed!")
-            time.sleep(0.5)
+            notification_container.success("50 steps executed!")
+            time.sleep(2)
+            notification_container.empty()
+            p_bar_container.empty()
             st.rerun()
 
     with col_c:
-        if st.button("🔄 Reset", use_container_width=True):
+        if st.button("Reset", use_container_width=True):
             if reset_simulation():
-                st.info("Simulation reset!")
-                time.sleep(0.5)
+                notification_container.info("Simulation reset!")
+                time.sleep(2)
+                notification_container.empty()
                 st.rerun()
 
     st.divider()
-
     # History and visualization
     history = fetch_history()
 
@@ -183,7 +192,7 @@ with placeholder.container():
         df = pd.DataFrame(data)
 
         # Plot population evolution
-        st.subheader("📈 Population Evolution (Lotka-Volterra Model)")
+        st.subheader("Population Evolution (Lotka-Volterra Model)")
 
         fig = px.line(
             df,
@@ -219,14 +228,14 @@ with placeholder.container():
         st.plotly_chart(fig, use_container_width=True)
 
         # Statistics (sur les valeurs affichées pour Vampire)
-        st.subheader("📊 Statistics")
+        st.subheader("Statistics")
 
         stats = df.groupby("Species")["Population"].agg(["min", "max", "mean", "std"])
 
         col1, col2 = st.columns(2)
 
         with col1:
-            st.write("**🧙 Golem Statistics**")
+            st.write("**Golem Statistics**")
             if "Golem" in stats.index:
                 golem_stats = stats.loc["Golem"]
                 st.metric("Min", f"{golem_stats['min']:.2f}")
@@ -236,7 +245,7 @@ with placeholder.container():
                     st.metric("Std Dev", f"{golem_stats['std']:.2f}")
 
         with col2:
-            st.write("**🧛 Vampire Statistics (values > 0 only)**")
+            st.write("**Vampire Statistics (values > 0 only)**")
             if "Vampire" in stats.index:
                 vampire_stats = stats.loc["Vampire"]
                 # min peut être NaN si toutes les valeurs sont <= 0
@@ -250,7 +259,7 @@ with placeholder.container():
                         st.metric("Std Dev", f"{vampire_stats['std']:.2f}")
 
         # Raw data
-        with st.expander("📋 Raw Data"):
+        with st.expander("Raw Data"):
             st.dataframe(df, use_container_width=True)
 
     else:
