@@ -1,38 +1,20 @@
 """
-Golem population model - Modified version.
-Uses shifted cosine for Vampire population (always non-negative).
+Golem population model (Group F).
+Synced for Green Light Dashboard.
 """
 
 import numpy as np
 import time
-from typing import Dict
+from typing import Dict, Any
+
+# Import the network client
+from src.rival import get_vampire_size_from_api
 
 
-# Constants
-ALPHA = 0.2
-GROWTH_RATE = 0.5
-K = 1000.0
-K_VAMPIRE = 1500.0
-
-
-def get_vampire_population(t: float = None) -> float:
-    """
-    Vampire population using a shifted cosine function (always >= 0).
-
-    Previous formula: K_vampire * cos(t)   -> in [-K_vampire, K_vampire]
-    New formula:      (K_vampire / 2) * (1 + cos(t))  -> in [0, K_vampire]
-
-    Args:
-        t: Time (defaults to current time)
-
-    Returns:
-        Vampire population (always non-negative)
-    """
-    if t is None:
-        t = time.time()
-
-    # Shift + scale so the range becomes [0, K_VAMPIRE]
-    return 0.5 * K_VAMPIRE * (1.0 + np.cos(t))
+# --- Constants ---
+GROWTH_RATE = 0.5       # r
+K = 1000.0              # Carrying capacity
+ALPHA = 0.2             # Competition
 
 
 def calculate_next_population(
@@ -43,23 +25,15 @@ def calculate_next_population(
     alpha: float = ALPHA
 ) -> float:
     """
-    Calculate next Golem population using Lotka-Volterra.
-
-    Formula:
-    N(t+1) = N(t) * (1 + r * (1 - (N(t) + α * N_vampire(t)) / K))
-
-    Args:
-        current_size: Current Golem population
-        vampire_size: Current Vampire population (now always >= 0)
-        growth_rate: Golem growth rate r
-        carrying_capacity: Golem carrying capacity K
-        alpha: Competition coefficient α
-
-    Returns:
-        New Golem population size
+    Standard Lotka-Volterra logic.
     """
-    competition = (current_size + alpha * vampire_size) / carrying_capacity
-    return current_size * (1.0 + growth_rate * (1.0 - competition))
+    if carrying_capacity == 0:
+        return 0.0
+
+    competition_term = (current_size + alpha * vampire_size) / carrying_capacity
+    next_size = current_size * (1.0 + growth_rate * (1.0 - competition_term))
+    
+    return max(0.0, next_size)
 
 
 def simulation_step(
@@ -67,22 +41,17 @@ def simulation_step(
     growth_rate: float = GROWTH_RATE,
     carrying_capacity: float = K,
     alpha: float = ALPHA
-) -> Dict[str, float]:
+) -> Dict[str, Any]:
     """
-    Execute one simulation step.
-
-    Args:
-        current_size: Current Golem population
-        growth_rate: Growth rate
-        carrying_capacity: Carrying capacity
-        alpha: Competition coefficient
-
-    Returns:
-        Dict with simulation results
+    Execute one full simulation step.
     """
     t = time.time()
-    vampire_pop = get_vampire_population(t)
 
+    # FIX 1: Do not pass arguments to rival.py (it handles fallbacks internally)
+    # Returns: (population_value, is_connected_boolean)
+    vampire_pop, is_online = get_vampire_size_from_api()
+
+    # Calculate new Golem population
     next_size = calculate_next_population(
         current_size,
         vampire_pop,
@@ -91,13 +60,17 @@ def simulation_step(
         alpha
     )
 
+    # FIX 2: Use key 'connected' to match api.py
     return {
         "temps": float(t),
         "taille": float(next_size),
+        "vampire": float(vampire_pop),
+        
+        # KEY FIX: This must be 'connected' so api.py can read it!
+        "connected": is_online,
+        
+        # Metadata
         "taux_de_croissance": float(growth_rate),
         "taux_de_competition": float(alpha),
         "capacite_biotique": float(carrying_capacity),
-        "vampire": float(vampire_pop),
     }
-
-    
