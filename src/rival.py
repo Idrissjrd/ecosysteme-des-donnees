@@ -1,29 +1,31 @@
-"""
-Client to interact with the Rival Group (Group E - Vampires).
-"""
 import requests
 
-RIVAL_API_URL = "http://127.0.0.1:16040/taille"
+# OPTION A: Standard Docker-for-Mac address
+# This tells Docker: "Look at the computer hosting me"
+RIVAL_API_URL = "http://host.docker.internal:16040/taille"
 
-def get_vampire_size_from_api(fallback_value: float = 500.0) -> tuple[float, bool]:
+# OPTION B: If Option A fails, use your Mac's real IP address
+# Run 'ipconfig getifaddr en0' in a terminal to find it (e.g., 192.168.1.15)
+# RIVAL_API_URL = "http://192.168.1.15:16040/taille"
+
+def get_vampire_size_from_api():
     """
-    Returns: (population_size, is_connected)
+    Fetches the vampire population size from the API.
+    Returns: (size, is_connected)
     """
     try:
-        response = requests.get(RIVAL_API_URL, timeout=0.5)
+        # Timeout is short (1s) so the app doesn't freeze if offline
+        response = requests.get(RIVAL_API_URL, timeout=1)
         
         if response.status_code == 200:
             data = response.json()
-            val = data.get("taille")
-            if isinstance(val, list):
-                val = val[0]
+            # Success! Return the value AND True
+            return float(data.get("taille", 0.0)), True
             
-            # Validation: Only accept if value > 0.1
-            if val is not None and float(val) > 0.1:
-                return float(val), True  # <--- True = Connected
-                
-    except Exception:
+    except Exception as e:
+        # If any error happens (timeout, refused), return 0 and False
+        # print(f"Connection error: {e}") # Debug only
         pass
-    
-    # Fallback mode
-    return fallback_value, False  # <--- False = Offline/Simulation
+
+    # Fallback if offline
+    return 0.0, False
