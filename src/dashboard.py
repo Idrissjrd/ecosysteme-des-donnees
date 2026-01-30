@@ -1,5 +1,6 @@
 """
-Streamlit Dashboard with auto-refresh (5s) and population visualization.
+Streamlit Dashboard for Golem (Group F) vs Vampire (Group E).
+Auto-refreshes every 5 seconds.
 """
 
 import time
@@ -9,255 +10,207 @@ import numpy as np
 import streamlit as st
 import plotly.express as px
 
-
-# Configuration
+# --- Configuration ---
 API_URL = "http://localhost:16050"
 REFRESH_INTERVAL = 5  # seconds
 
-
-# Page config
+# --- Page Config ---
 st.set_page_config(
-    page_title="Golem Population Model",
+    page_title="Golem Ecosystem",
+    page_icon="🪨",
     layout="wide",
 )
 
-st.title("🧙 Golem Population Model")
+st.title("🪨 Golem Population Model (vs Vampire)")
 
+
+# --- API Helper Functions ---
 
 def fetch_state() -> dict | None:
     """Fetch current state from API."""
     try:
-        resp = requests.get(f"{API_URL}/simulation/state", timeout=2)
-        if resp.status_code == 200:
-            return resp.json()
-    except Exception as e:
-        st.warning(f"API error: {e}")
-    return None
-
-
-def fetch_population() -> dict | None:
-    """Fetch current population from API."""
-    try:
-        resp = requests.get(f"{API_URL}/population/taille", timeout=2)
+        # Tries to get the last known state
+        resp = requests.get(f"{API_URL}/simulation/state", timeout=1)
         if resp.status_code == 200:
             return resp.json()
     except Exception:
         pass
     return None
 
-
 def fetch_history() -> list:
     """Fetch simulation history from API."""
     try:
-        resp = requests.get(f"{API_URL}/simulation/history", timeout=2)
+        resp = requests.get(f"{API_URL}/simulation/history", timeout=1)
         if resp.status_code == 200:
             data = resp.json()
+            # Support both list directly or {"history": [...]} format
+            if isinstance(data, list):
+                return data
             return data.get("history", [])
     except Exception:
         pass
     return []
 
-
 def run_step() -> bool:
     """Run one simulation step."""
     try:
-        resp = requests.post(f"{API_URL}/simulation/step", timeout=2)
+        resp = requests.post(f"{API_URL}/simulation/step", timeout=1)
         return resp.status_code == 200
     except Exception as e:
         st.warning(f"Could not run step: {e}")
         return False
 
-
 def reset_simulation() -> bool:
     """Reset simulation."""
     try:
-        resp = requests.post(f"{API_URL}/simulation/reset", timeout=2)
+        resp = requests.post(f"{API_URL}/simulation/reset", timeout=1)
         return resp.status_code == 200
-    except Exception as e:
-        st.warning(f"Could not reset: {e}")
+    except Exception:
         return False
 
 
-# Main dashboard layout
+# --- Main Dashboard Layout ---
 placeholder = st.empty()
 
 with placeholder.container():
-    # Current metrics
+    
+    # 1. Fetch Data
     state = fetch_state()
-    pop_data = fetch_population()
+    history = fetch_history()
 
-    if state and pop_data:
+    # 2. Display Metrics (Top Row)
+    if state:
         col1, col2, col3 = st.columns(3)
+
+        # Robust key handling: try "taille" (model output) or fallback to 0
+        golem_current = state.get("taille", state.get("populations", {}).get("Golem", 0))
+        
+        # Robust key handling for rival: "vampire" (model output)
+        vampire_current = state.get("vampire", state.get("populations", {}).get("Vampire", 0))
+        
+        # Robust key handling for time: "temps" or "time_step"
+        time_current = state.get("temps", state.get("time_step", 0))
 
         with col1:
             st.metric(
-                "🧙 Golem",
-                f"{pop_data['taille']:.1f}",
-                delta=f"t={state['time_step']}",
+                "🪨 Golem",
+                f"{golem_current:.1f}",
+                delta="Population Size"
             )
 
         with col2:
-            # Get vampire population from last history entry (DISPLAY ONLY)
-            history = fetch_history()
-            vampire_pop = 0
-            if history:
-                vampire_pop = history[-1].get("vampire_population", 0)
-
-            # Affichage uniquement au-dessus de 0 (sans changer les données)
-            vampire_pop_display = vampire_pop if vampire_pop > 0 else 0
-
             st.metric(
                 "🧛 Vampire",
-                f"{vampire_pop_display:.1f}",
-                delta=f"t={state['time_step']}",
+                f"{vampire_current:.1f}",
+                delta="Rival Species"
             )
 
         with col3:
             st.metric(
                 "⏱️ Time Step",
-                state["time_step"],
+                f"{time_current:.0f}",
             )
 
         st.divider()
 
-    # Control buttons
+    # 3. Control Buttons
     col_a, col_b, col_c = st.columns(3)
 
     with col_a:
         if st.button("▶️ Run 1 Step", use_container_width=True):
             if run_step():
                 st.success("Step executed!")
-                time.sleep(0.5)
+                time.sleep(0.1)
                 st.rerun()
 
     with col_b:
-        if st.button("▶️ Run 50 Steps", use_container_width=True):
+        if st.button("⏩ Run 50 Steps", use_container_width=True):
             progress_bar = st.progress(0)
             for i in range(50):
                 run_step()
                 progress_bar.progress((i + 1) / 50)
             st.success("50 steps executed!")
-            time.sleep(0.5)
             st.rerun()
 
     with col_c:
         if st.button("🔄 Reset", use_container_width=True):
             if reset_simulation():
                 st.info("Simulation reset!")
-                time.sleep(0.5)
                 st.rerun()
 
     st.divider()
 
-    # History and visualization
-    history = fetch_history()
-
+    # 4. Visualization & History
     if history:
-        # Prepare data from history
-        data = []
+        # Transform API history list into a DataFrame for Plotly
+        data_rows = []
         for record in history:
-            t = record["time_step"]
-            golem_pop = record["golem_population"]
-            vampire_pop = record.get("vampire_population", 0)
+            # Handle keys: model.py uses 'temps', 'taille', 'vampire'
+            t = record.get("temps", record.get("time", 0))
+            g_pop = record.get("taille", record.get("populations", {}).get("Golem", 0))
+            v_pop = record.get("vampire", record.get("populations", {}).get("Vampire", 0))
+            
+            # Golem Row
+            data_rows.append({
+                "Time": t,
+                "Species": "Golem",
+                "Population": g_pop
+            })
+            
+            # Vampire Row (Handle negative cosine values by converting to NaN for graph)
+            v_plot = v_pop if v_pop > 0 else np.nan
+            data_rows.append({
+                "Time": t,
+                "Species": "Vampire",
+                "Population": v_plot
+            })
 
-            # --- CHANGE D'AFFICHAGE ICI ---
-            # On remplace les valeurs négatives par NaN pour que Plotly ne les trace pas.
-            vampire_plot_value = vampire_pop if vampire_pop > 0 else np.nan
+        df = pd.DataFrame(data_rows)
 
-            data.append(
-                {
-                    "Time": t,
-                    "Species": "Golem",
-                    "Population": golem_pop,
-                }
-            )
-
-            data.append(
-                {
-                    "Time": t,
-                    "Species": "Vampire",
-                    "Population": vampire_plot_value,
-                }
-            )
-
-        df = pd.DataFrame(data)
-
-        # Plot population evolution
-        st.subheader("📈 Population Evolution (Lotka-Volterra Model)")
-
+        # -- Graph --
+        st.subheader("📈 Population Dynamics")
+        
         fig = px.line(
             df,
             x="Time",
             y="Population",
             color="Species",
-            title="Population Dynamics Over Time",
             markers=True,
-            template="plotly_white",
-            labels={"Time": "Time Step (t)", "Population": "Population Size N(t)"},
-            color_discrete_map={"Golem": "#32B48E", "Vampire": "#E6817E"},
+            color_discrete_map={"Golem": "#2E86C1", "Vampire": "#C0392B"},
+            template="plotly_white"
         )
-
-        fig.update_layout(
-            hovermode="x unified",
-            height=500,
-            xaxis_title="Time Step (t)",
-            yaxis_title="Population Size N(t)",
-        )
-
-        # Force l'axe Y à démarrer à 0 (optionnel mais cohérent avec ">=0")
-        fig.update_yaxes(rangemode="tozero")
-
-        # Add carrying capacity line
-        fig.add_hline(
-            y=1000,
-            line_dash="dot",
-            line_color="gray",
-            annotation_text="K = 1000",
-            annotation_position="right",
-        )
-
+        
+        fig.update_layout(height=450, hovermode="x unified")
         st.plotly_chart(fig, use_container_width=True)
 
-        # Statistics (sur les valeurs affichées pour Vampire)
+        # -- Statistics --
         st.subheader("📊 Statistics")
-
+        
+        # Calculate stats ignoring NaNs
         stats = df.groupby("Species")["Population"].agg(["min", "max", "mean", "std"])
-
-        col1, col2 = st.columns(2)
-
-        with col1:
-            st.write("**🧙 Golem Statistics**")
+        
+        c1, c2 = st.columns(2)
+        with c1:
+            st.markdown("### 🪨 Golem Stats")
             if "Golem" in stats.index:
-                golem_stats = stats.loc["Golem"]
-                st.metric("Min", f"{golem_stats['min']:.2f}")
-                st.metric("Max", f"{golem_stats['max']:.2f}")
-                st.metric("Mean", f"{golem_stats['mean']:.2f}")
-                if pd.notna(golem_stats["std"]) and golem_stats["std"] > 0:
-                    st.metric("Std Dev", f"{golem_stats['std']:.2f}")
-
-        with col2:
-            st.write("**🧛 Vampire Statistics (values > 0 only)**")
+                row = stats.loc["Golem"]
+                st.write(f"**Mean:** {row['mean']:.2f} | **Max:** {row['max']:.2f}")
+                
+        with c2:
+            st.markdown("### 🧛 Vampire Stats")
             if "Vampire" in stats.index:
-                vampire_stats = stats.loc["Vampire"]
-                # min peut être NaN si toutes les valeurs sont <= 0
-                if pd.isna(vampire_stats["min"]):
-                    st.info("Aucune valeur Vampire > 0 pour l'instant.")
-                else:
-                    st.metric("Min", f"{vampire_stats['min']:.2f}")
-                    st.metric("Max", f"{vampire_stats['max']:.2f}")
-                    st.metric("Mean", f"{vampire_stats['mean']:.2f}")
-                    if pd.notna(vampire_stats["std"]) and vampire_stats["std"] > 0:
-                        st.metric("Std Dev", f"{vampire_stats['std']:.2f}")
+                row = stats.loc["Vampire"]
+                st.write(f"**Mean:** {row['mean']:.2f} | **Max:** {row['max']:.2f}")
 
-        # Raw data
-        with st.expander("📋 Raw Data"):
-            st.dataframe(df, use_container_width=True)
+        with st.expander("View Raw Data"):
+            st.dataframe(df)
 
     else:
-        st.info("No data yet. Run some simulation steps!")
+        st.info("No history available. Click 'Run' to start simulation.")
 
 
-# Auto-refresh mechanism - runs step automatically every 5 seconds
+# --- Auto-Refresh Logic ---
+# Sleeps for 5 seconds, runs a step, then reloads the page.
 time.sleep(REFRESH_INTERVAL)
 run_step()
 st.rerun()
