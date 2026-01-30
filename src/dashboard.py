@@ -1,6 +1,6 @@
 """
-Streamlit Dashboard for Golem (Group F) vs Vampire (Group E).
-Includes Network Status Indicator, Auto-Refresh, and Robust Data Parsing.
+Streamlit Dashboard for Golem Population Model.
+Optimized for data robustness and clear visualization.
 """
 
 import time
@@ -17,40 +17,39 @@ REFRESH_INTERVAL = 5  # seconds
 # --- Page Config ---
 st.set_page_config(
     page_title="Golem Population Model",
-    page_icon="🪨",
     layout="wide",
 )
 
-st.title("🪨 Golem Population Model (vs Vampire)")
+def local_css(file_name):
+    try:
+        with open(file_name) as f:
+            st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
+    except FileNotFoundError:
+        pass
 
+local_css("assets/styles/style.css")
+
+st.title("Golem Population Model")
 
 # --- API Helper Functions ---
 
 def fetch_state() -> dict | None:
     """Fetch current state from API."""
     try:
-        resp = requests.get(f"{API_URL}/simulation/state", timeout=1)
+        resp = requests.get(f"{API_URL}/simulation/state", timeout=2)
         if resp.status_code == 200:
             return resp.json()
     except Exception:
         pass
     return None
 
-def local_css(file_name):
-    with open(file_name) as f:
-        st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
-
-local_css("assets/styles/style.css")
-
 def fetch_history() -> list:
     """Fetch simulation history from API."""
     try:
-        resp = requests.get(f"{API_URL}/simulation/history", timeout=1)
+        resp = requests.get(f"{API_URL}/simulation/history", timeout=2)
         if resp.status_code == 200:
             data = resp.json()
-            if isinstance(data, list):
-                return data
-            return data.get("history", [])
+            return data if isinstance(data, list) else data.get("history", [])
     except Exception:
         pass
     return []
@@ -58,117 +57,100 @@ def fetch_history() -> list:
 def run_step() -> bool:
     """Run one simulation step."""
     try:
-        resp = requests.post(f"{API_URL}/simulation/step", timeout=1)
+        resp = requests.post(f"{API_URL}/simulation/step", timeout=2)
         return resp.status_code == 200
-    except Exception as e:
+    except Exception:
         return False
 
 def reset_simulation() -> bool:
     """Reset simulation."""
     try:
-        resp = requests.post(f"{API_URL}/simulation/reset", timeout=1)
+        resp = requests.post(f"{API_URL}/simulation/reset", timeout=2)
         return resp.status_code == 200
     except Exception:
         return False
-
 
 # --- Main Dashboard Layout ---
 placeholder = st.empty()
 
 with placeholder.container():
-    
-    # 1. Fetch Data
     state = fetch_state()
     history = fetch_history()
 
-    # 2. Network Status Indicator
+    # 1. Network Status Indicator (from New Version)
     if state:
         is_connected = state.get("connected", False)
         if is_connected:
-            st.success("🟢 **Network Status:** CONNECTED to Group E (Vampire API)")
+            st.success("Network Status: CONNECTED to external API")
         else:
-            st.warning("🟠 **Network Status:** OFFLINE (Using Internal Simulation)")
+            st.warning("Network Status: OFFLINE (Internal Simulation)")
     else:
-        st.error("🔴 **System Status:** API Unreachable (Check Docker)")
+        st.error("System Status: API Unreachable (Check Docker/Server)")
 
     st.divider()
 
-    # 3. Display Metrics (Top Row)
+    # 2. Current Metrics
     if state:
         col1, col2, col3 = st.columns(3)
-
-        # Robust extraction for current metrics
+        
+        # Robust data extraction
         pops = state.get("populations", {})
         golem_val = pops.get("Golem", state.get("taille", 0))
         vampire_val = pops.get("Vampire", state.get("vampire", 0))
         time_val = state.get("time_step", state.get("temps", 0))
 
         with col1:
-            st.metric("🪨 Golem Population", f"{golem_val:.1f}")
-
+            st.metric("Golem Population", f"{golem_val:.1f}")
         with col2:
-            st.metric("🧛 Vampire Population", f"{vampire_val:.1f}")
-
+            st.metric("Vampire Population", f"{max(0, vampire_val):.1f}")
         with col3:
-            st.metric("⏱️ Time Step", f"{time_val:.0f}")
+            st.metric("Time Step", f"{time_val}")
+        
+        st.divider()
 
-    # 4. Control Buttons
+    # 3. Control Buttons
+    notification_container = st.empty()
     col_a, col_b, col_c = st.columns(3)
 
     with col_a:
-        if st.button("▶️ Run 1 Step", use_container_width=True):
-            run_step()
-            st.rerun()
+        if st.button("Run 1 Step", use_container_width=True):
+            if run_step():
+                st.rerun()
 
     with col_b:
-        if st.button("⏩ Run 50 Steps", use_container_width=True):
-            progress_bar = st.progress(0)
+        if st.button("Run 50 Steps", use_container_width=True):
             for i in range(50):
                 run_step()
-                progress_bar.progress((i + 1) / 50)
             st.rerun()
 
     with col_c:
-        if st.button("🔄 Reset Simulation", use_container_width=True):
-            reset_simulation()
-            st.rerun()
+        if st.button("Reset Simulation", use_container_width=True):
+            if reset_simulation():
+                st.rerun()
 
     st.divider()
 
-    # 5. Visualization & History (FIXED)
+    # 4. Visualization & History
     if history:
-        # Convert API history list to DataFrame
         data_rows = []
         for record in history:
-            # 1. Get Time
-            t = record.get("time", record.get("temps", 0))
+            t = record.get("time_step", record.get("time", record.get("temps", 0)))
             
-            # 2. Extract Populations (Handle both nested and flat formats)
-            # The database.py returns a 'populations' dictionary: {'Golem': 100, 'Vampire': 50}
+            # Robust populations extraction
             pops = record.get("populations", {})
+            g_pop = pops.get("Golem", record.get("golem_population", record.get("taille", 0)))
+            v_pop = pops.get("Vampire", record.get("vampire_population", record.get("vampire", 0)))
+
+            # Golem entry
+            data_rows.append({"Time": t, "Species": "Golem", "Population": g_pop})
             
-            # Try getting from 'populations' dict FIRST, then fallback to flat keys
-            g_pop = pops.get("Golem", record.get("taille", record.get("golem_population", 0)))
-            v_pop = pops.get("Vampire", record.get("vampire", record.get("vampire_population", 0)))
-            
-            # 3. Append Golem Data
-            data_rows.append({
-                "Time": t,
-                "Species": "Golem",
-                "Population": g_pop
-            })
-            
-            # 4. Append Vampire Data
-            data_rows.append({
-                "Time": t,
-                "Species": "Vampire",
-                "Population": v_pop
-            })
+            # Vampire entry (NaN for negative values to break the line in Plotly)
+            v_plot_val = v_pop if v_pop > 0 else np.nan
+            data_rows.append({"Time": t, "Species": "Vampire", "Population": v_plot_val})
 
         df = pd.DataFrame(data_rows)
 
-        # -- Graph --
-        st.subheader("📈 Population Dynamics")
+        st.subheader("Population Evolution (Lotka-Volterra Model)")
         
         fig = px.line(
             df,
@@ -176,42 +158,43 @@ with placeholder.container():
             y="Population",
             color="Species",
             markers=True,
-            color_discrete_map={"Golem": "#2E86C1", "Vampire": "#C0392B"},
             template="plotly_white",
-            title="Lotka-Volterra Competition Model"
+            color_discrete_map={"Golem": "#32B48E", "Vampire": "#E6817E"}
         )
         
-        fig.update_layout(height=450, hovermode="x unified")
+        fig.update_layout(height=500, hovermode="x unified")
+        fig.update_yaxes(rangemode="tozero")
+        
+        # Carrying capacity indicator
+        fig.add_hline(y=1000, line_dash="dot", line_color="gray", annotation_text="K = 1000")
+        
         st.plotly_chart(fig, use_container_width=True)
 
-        # -- Statistics --
-        st.subheader("📊 Statistics")
+        # 5. Statistics
+        st.subheader("Statistics")
+        stats = df.dropna(subset=["Population"]).groupby("Species")["Population"].agg(["min", "max", "mean", "std"])
         
-        # Group by Species to get stats
-        stats = df.groupby("Species")["Population"].agg(["min", "max", "mean", "std"])
-        
-        c1, c2 = st.columns(2)
-        with c1:
-            st.markdown("### 🪨 Golem Stats")
+        s_col1, s_col2 = st.columns(2)
+        with s_col1:
+            st.write("**Golem Statistics**")
             if "Golem" in stats.index:
                 row = stats.loc["Golem"]
-                st.info(f"**Max:** {row['max']:.1f} | **Avg:** {row['mean']:.1f}")
+                st.metric("Max", f"{row['max']:.2f}")
+                st.metric("Mean", f"{row['mean']:.2f}")
                 
-        with c2:
-            st.markdown("### 🧛 Vampire Stats")
+        with s_col2:
+            st.write("**Vampire Statistics (N > 0)**")
             if "Vampire" in stats.index:
                 row = stats.loc["Vampire"]
-                st.info(f"**Max:** {row['max']:.1f} | **Avg:** {row['mean']:.1f}")
+                st.metric("Max", f"{row['max']:.2f}")
+                st.metric("Mean", f"{row['mean']:.2f}")
 
-        with st.expander("View Raw Data Table"):
+        with st.expander("Raw Data Table"):
             st.dataframe(df, use_container_width=True)
-
     else:
-        st.info("No simulation history yet. Click 'Run' to start.")
-
+        st.info("No history available. Run steps to generate data.")
 
 # --- Auto-Refresh Logic ---
-# Sleep briefly then rerun to create the "live" effect
 time.sleep(REFRESH_INTERVAL)
-run_step()  # Automatically advance simulation
+run_step()
 st.rerun()
