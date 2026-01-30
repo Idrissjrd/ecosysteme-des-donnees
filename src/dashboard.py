@@ -1,11 +1,10 @@
 """
-Streamlit Dashboard with auto-refresh (5s) and cosine wave visualization.
+Streamlit Dashboard with auto-refresh (5s) and population visualization.
 """
 
 import time
 import requests
 import pandas as pd
-import numpy as np
 import streamlit as st
 import plotly.express as px
 
@@ -19,8 +18,7 @@ st.set_page_config(
     layout="wide",
 )
 
-st.title(" Golem Population Model" )
-
+st.title("🧙 Golem Population Model")
 
 
 def fetch_state() -> dict | None:
@@ -34,12 +32,24 @@ def fetch_state() -> dict | None:
     return None
 
 
+def fetch_population() -> dict | None:
+    """Fetch current population from API."""
+    try:
+        resp = requests.get(f"{API_URL}/population/taille", timeout=2)
+        if resp.status_code == 200:
+            return resp.json()
+    except Exception:
+        pass
+    return None
+
+
 def fetch_history() -> list:
     """Fetch simulation history from API."""
     try:
         resp = requests.get(f"{API_URL}/simulation/history", timeout=2)
         if resp.status_code == 200:
-            return resp.json().get("history", [])
+            data = resp.json()
+            return data.get("history", [])
     except Exception:
         pass
     return []
@@ -55,26 +65,44 @@ def run_step() -> bool:
         return False
 
 
+def reset_simulation() -> bool:
+    """Reset simulation."""
+    try:
+        resp = requests.post(f"{API_URL}/simulation/reset", timeout=2)
+        return resp.status_code == 200
+    except Exception as e:
+        st.warning(f"Could not reset: {e}")
+        return False
+
+
 # Main dashboard layout
 placeholder = st.empty()
 
 with placeholder.container():
     # Current metrics
     state = fetch_state()
-    if state:
+    pop_data = fetch_population()
+    
+    if state and pop_data:
         col1, col2, col3 = st.columns(3)
 
         with col1:
             st.metric(
-                " Golem",
-                f"{state['populations']['Golem']:.1f}",
+                "🧙 Golem",
+                f"{pop_data['taille']:.1f}",
                 delta=f"t={state['time_step']}",
             )
 
         with col2:
+            # Get vampire population from last history entry
+            history = fetch_history()
+            vampire_pop = 0
+            if history:
+                vampire_pop = history[-1].get('vampire_population', 0)
+            
             st.metric(
-                " Human",
-                f"{state['populations']['Human']:.1f}",
+                "🧛 Vampire",
+                f"{vampire_pop:.1f}",
                 delta=f"t={state['time_step']}",
             )
 
@@ -93,22 +121,25 @@ with placeholder.container():
         if st.button("▶️ Run 1 Step", use_container_width=True):
             if run_step():
                 st.success("Step executed!")
+                time.sleep(0.5)
+                st.rerun()
 
     with col_b:
-        if st.button("▶️ Run 10 Steps", use_container_width=True):
+        if st.button("▶️ Run 50 Steps", use_container_width=True):
             progress_bar = st.progress(0)
-            for i in range(10):
+            for i in range(50):
                 run_step()
-                progress_bar.progress((i + 1) / 10)
-            st.success("10 steps executed!")
+                progress_bar.progress((i + 1) / 50)
+            st.success("50 steps executed!")
+            time.sleep(0.5)
+            st.rerun()
 
     with col_c:
         if st.button("🔄 Reset", use_container_width=True):
-            try:
-                requests.post(f"{API_URL}/simulation/reset", timeout=2)
+            if reset_simulation():
                 st.info("Simulation reset!")
-            except Exception as e:
-                st.error(f"Reset failed: {e}")
+                time.sleep(0.5)
+                st.rerun()
 
     st.divider()
 
@@ -119,53 +150,56 @@ with placeholder.container():
         # Prepare data from history
         data = []
         for record in history:
-            t = record["time"]
-            for species, pop in record["populations"].items():
-                data.append(
-                    {
-                        "Time": t,
-                        "Species": species,
-                        "Population": pop,
-                    }
-                )
+            t = record["time_step"]
+            golem_pop = record["golem_population"]
+            vampire_pop = record.get("vampire_population", 0)
+            
+            data.append({
+                "Time": t,
+                "Species": "Golem",
+                "Population": golem_pop,
+            })
+            
+            data.append({
+                "Time": t,
+                "Species": "Vampire",
+                "Population": vampire_pop,
+            })
 
         df = pd.DataFrame(data)
 
-        # Add cosine wave for reference
-        times = sorted(df["Time"].unique())
-        K = 1000
-        omega = 0.1
-        wave = K * np.cos(np.array(times) * omega) + K
-
-        wave_df = pd.DataFrame(
-            {
-                "Time": times,
-                "Species": "Golem (Cosine Wave Demo)",
-                "Population": wave,
-            }
-        )
-
-        df_combined = pd.concat([df, wave_df], ignore_index=True)
-
         # Plot population evolution
-        st.subheader("📈 Population Evolution (Lotka-Volterra + Cosine Wave)")
+        st.subheader("📈 Population Evolution (Lotka-Volterra Model)")
 
         fig = px.line(
-            df_combined,
+            df,
             x="Time",
             y="Population",
             color="Species",
             title="Population Dynamics Over Time",
             markers=True,
             template="plotly_white",
-            labels={"Time": "Time Step (t)", "Population": "Population Size N_i(t)"},
+            labels={"Time": "Time Step (t)", "Population": "Population Size N(t)"},
+            color_discrete_map={
+                "Golem": "#32B48E",
+                "Vampire": "#E6817E"
+            }
         )
 
         fig.update_layout(
             hovermode="x unified",
             height=500,
-            xaxis_title="Time Step (t_n)",
-            yaxis_title="Population Size (N_i)",
+            xaxis_title="Time Step (t)",
+            yaxis_title="Population Size N(t)",
+        )
+
+        # Add carrying capacity line
+        fig.add_hline(
+            y=1000,
+            line_dash="dot",
+            line_color="gray",
+            annotation_text="K = 1000",
+            annotation_position="right"
         )
 
         st.plotly_chart(fig, use_container_width=True)
@@ -180,20 +214,24 @@ with placeholder.container():
         col1, col2 = st.columns(2)
 
         with col1:
-            st.write("**Golem Statistics**")
+            st.write("**🧙 Golem Statistics**")
             if "Golem" in stats.index:
                 golem_stats = stats.loc["Golem"]
                 st.metric("Min", f"{golem_stats['min']:.2f}")
                 st.metric("Max", f"{golem_stats['max']:.2f}")
                 st.metric("Mean", f"{golem_stats['mean']:.2f}")
+                if golem_stats['std'] > 0:
+                    st.metric("Std Dev", f"{golem_stats['std']:.2f}")
 
         with col2:
-            st.write("**Human Statistics**")
-            if "Human" in stats.index:
-                human_stats = stats.loc["Human"]
-                st.metric("Min", f"{human_stats['min']:.2f}")
-                st.metric("Max", f"{human_stats['max']:.2f}")
-                st.metric("Mean", f"{human_stats['mean']:.2f}")
+            st.write("**🧛 Vampire Statistics**")
+            if "Vampire" in stats.index:
+                vampire_stats = stats.loc["Vampire"]
+                st.metric("Min", f"{vampire_stats['min']:.2f}")
+                st.metric("Max", f"{vampire_stats['max']:.2f}")
+                st.metric("Mean", f"{vampire_stats['mean']:.2f}")
+                if vampire_stats['std'] > 0:
+                    st.metric("Std Dev", f"{vampire_stats['std']:.2f}")
 
         # Raw data
         with st.expander("📋 Raw Data"):
@@ -202,7 +240,8 @@ with placeholder.container():
     else:
         st.info("No data yet. Run some simulation steps!")
 
-# Auto-refresh mechanism
+# Auto-refresh mechanism - runs step automatically every 5 seconds
 time.sleep(REFRESH_INTERVAL)
 run_step()
 st.rerun()
+

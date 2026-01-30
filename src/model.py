@@ -1,129 +1,104 @@
 """
-Lotka-Volterra population model.
-
-Discrete-time model:
-N_i(t+1) = N_i(t) * (1 + r_i * (1 - (N_i(t) + Σ α_ij * N_j(t)) / K_i))
+Golem population model - Original version.
+Uses cos(t) for Vampire population (can be negative).
 """
 
-from dataclasses import dataclass, field
-from typing import Dict, List
+import numpy as np
+import time
+from typing import Dict
 
 
-@dataclass
-class Species:
-    """Species parameters and state."""
-
-    name: str
-    size: float  # N_i(t)
-    growth_rate: float  # r_i
-    carrying_capacity: float  # K_i
-    competition: Dict[str, float] = field(default_factory=dict)  # α_ij
+# Constants
+ALPHA = 0.2
+GROWTH_RATE = 0.5
+K = 1000.0
+K_VAMPIRE = 1500.0
 
 
-class PopulationModel:
-    """Lotka-Volterra multi-species model."""
-
-    def __init__(self) -> None:
-        self.species: Dict[str, Species] = {}
-        self.time_step: int = 0
-        self.history: List[Dict] = []
-
-    def add_species(self, sp: Species) -> None:
-        """Register a species."""
-        self.species[sp.name] = sp
-
-    def set_competition(self, i: str, j: str, alpha: float) -> None:
-        """Set competition coefficient α_ij."""
-        if i in self.species:
-            self.species[i].competition[j] = alpha
-
-    def step(self) -> Dict[str, float]:
-        """
-        Advance simulation by one time step.
-
-        Returns:
-            Dict of species name -> new population size
-        """
-        new_sizes: Dict[str, float] = {}
-
-        for name, sp in self.species.items():
-            # Calculate competition term from other species
-            interaction = sum(
-                sp.competition.get(other, 0.0) * other_sp.size
-                for other, other_sp in self.species.items()
-                if other != name
-            )
-
-            # Lotka-Volterra formula
-            numerator = sp.size + interaction
-            factor = 1.0 + sp.growth_rate * (
-                1.0 - numerator / sp.carrying_capacity
-            )
-            new_sizes[name] = max(0.0, sp.size * factor)
-
-        # Update all species
-        for name, size in new_sizes.items():
-            self.species[name].size = size
-
-        # Record history
-        self.time_step += 1
-        self.history.append(
-            {
-                "time": self.time_step,
-                "populations": dict(new_sizes),
-            }
-        )
-
-        return new_sizes
-
-    def get_state(self) -> Dict:
-        """Get current simulation state."""
-        return {
-            "time_step": self.time_step,
-            "populations": {
-                name: sp.size for name, sp in self.species.items()
-            },
-        }
-
-    def get_history(self) -> List[Dict]:
-        """Get full simulation history."""
-        return self.history
-
-    def reset(self) -> None:
-        """Reset simulation to initial state."""
-        self.time_step = 0
-        self.history.clear()
-
-
-def create_golem_model() -> PopulationModel:
+def get_vampire_population(t: float = None) -> float:
     """
-    Create default model for Golem (Group F).
-
-    Golem population depends on Human population.
+    Vampire population using cosine function.
+    
+    Formula: K_vampire * cos(t)
+    
+    Note: This can return negative values when cos(t) < 0.
+    This is mathematically correct for the Lotka-Volterra model
+    where negative population represents competitive pressure.
+    
+    Args:
+        t: Time (defaults to current time)
+    
+    Returns:
+        Vampire population (can be negative)
     """
-    model = PopulationModel()
+    if t is None:
+        t = time.time()
+    return K_VAMPIRE * np.cos(t)
 
-    # Create Golem species (Group F)
-    golem = Species(
-        name="Golem",
-        size=100.0,
-        growth_rate=0.5,
-        carrying_capacity=1000.0,
+
+def calculate_next_population(
+    current_size: float,
+    vampire_size: float,
+    growth_rate: float = GROWTH_RATE,
+    carrying_capacity: float = K,
+    alpha: float = ALPHA
+) -> float:
+    """
+    Calculate next Golem population using Lotka-Volterra.
+    
+    Formula:
+    N(t+1) = N(t) * (1 + r * (1 - (N(t) + α * N_vampire(t)) / K))
+    
+    Args:
+        current_size: Current Golem population
+        vampire_size: Current Vampire population (can be negative)
+        growth_rate: Golem growth rate r
+        carrying_capacity: Golem carrying capacity K
+        alpha: Competition coefficient α
+    
+    Returns:
+        New Golem population size
+    """
+    competition = (current_size + alpha * vampire_size) / carrying_capacity
+    return current_size * (1.0 + growth_rate * (1.0 - competition))
+
+
+def simulation_step(
+    current_size: float,
+    growth_rate: float = GROWTH_RATE,
+    carrying_capacity: float = K,
+    alpha: float = ALPHA
+) -> Dict[str, float]:
+    """
+    Execute one simulation step.
+    
+    Args:
+        current_size: Current Golem population
+        growth_rate: Growth rate
+        carrying_capacity: Carrying capacity
+        alpha: Competition coefficient
+    
+    Returns:
+        Dict with simulation results
+    """
+    t = time.time()
+    vampire_pop = get_vampire_population(t)
+    
+    next_size = calculate_next_population(
+        current_size,
+        vampire_pop,
+        growth_rate,
+        carrying_capacity,
+        alpha
     )
+    
+    return {
+        "temps": float(t),
+        "taille": float(next_size),
+        "taux_de_croissance": float(growth_rate),
+        "taux_de_competition": float(alpha),
+        "capacite_biotique": float(carrying_capacity),
+        "vampire": float(vampire_pop),
+    }
 
-    # Create Human species (Group G)
-    human = Species(
-        name="Human",
-        size=150.0,
-        growth_rate=0.4,
-        carrying_capacity=1500.0,
-    )
-
-    model.add_species(golem)
-    model.add_species(human)
-
-    # Set competition coefficients
-    model.set_competition("Golem", "Human", alpha=0.3)
-    model.set_competition("Human", "Golem", alpha=0.2)
-
-    return model
+    
